@@ -1,189 +1,132 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
+import { Container, TextField, Button, Radio, RadioGroup, FormControlLabel, FormControl, FormLabel, Box, Typography, Paper, ToggleButton, ToggleButtonGroup, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import './App.css'; // CSS 파일 임포트
 
 function App() {
-  const [yourDeck, setYourDeck] = useState("");
-  const [opponentDeck, setOpponentDeck] = useState("");
-  const [position, setPosition] = useState("");
-  const [result, setResult] = useState("");
-  const [records, setRecords] = useState([]);
+  const [yourDeck, setYourDeck] = useState('');
+  const [opponentDeck, setOpponentDeck] = useState('');
+  const [selectedOption, setSelectedOption] = useState('first');
+  const [result, setResult] = useState('win');
+  const [wins, setWins] = useState(0);
+  const [matches, setMatches] = useState([]);
 
-  const handleAddRecord = (e) => {
-    e.preventDefault();
-    if (!yourDeck || !opponentDeck || !position || !result) {
-      alert("모든 필드를 입력하세요.");
-      return;
-    }
-
-    const newRecord = { yourDeck, opponentDeck, position, result };
-    setRecords([...records, newRecord]);
-    setYourDeck("");
-    setOpponentDeck("");
-    setPosition("");
-    setResult("");
+  const handleInputChange = (setter) => (e) => {
+    setter(e.target.value);
   };
 
-  const clearRecords = () => {
-    setRecords([]);
+  const calculateStats = () => {
+    const total = matches.length; // 총 게임 수
+    const winsCount = matches.filter(match => match.result === 'win').length; // 승리 수
+    return { totalGames: total, winRate: total > 0 ? ((winsCount / total) * 100).toFixed(2) : 0 }; // 승률 계산
+  };
+
+  const { totalGames, winRate } = calculateStats(); // 계산된 통계 가져오기
+
+  const handleAddMatch = () => {
+    if (yourDeck && opponentDeck) {
+      setMatches([...matches, {
+        yourDeck,
+        opponentDeck,
+        position: selectedOption,
+        result: result
+      }]);
+      setYourDeck('');
+      setOpponentDeck('');
+    } else {
+      alert("Please enter both decks.");
+    }
+  };
+
+  const handleToggleChange = (event, newValue) => {
+    if (newValue !== null) {
+      setSelectedOption(newValue);
+    }
   };
 
   return (
-    <div className="w-[360px] p-4 bg-white shadow-sm font-sans">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-4">
-        <h1 className="text-lg font-semibold text-gray-900">Card Game Tracker</h1>
-        <button className="text-gray-500 hover:text-gray-700">
-          <i className="fas fa-redo-alt"></i>
-        </button>
-      </header>
+    <Container style={{ padding: '16px' }}>
+      <Typography variant="h5" gutterBottom>Card Game Tracker</Typography>
 
-      {/* Form */}
-      <form onSubmit={handleAddRecord} className="space-y-3 mb-4">
-        <div className="flex gap-3">
-          <input
-            type="text"
-            value={yourDeck}
-            onChange={(e) => setYourDeck(e.target.value)}
-            placeholder="Your Deck"
-            className="w-full h-9 px-3 text-sm border border-gray-300 rounded focus:border-custom focus:ring-1 focus:ring-custom"
-          />
-          <input
-            type="text"
-            value={opponentDeck}
-            onChange={(e) => setOpponentDeck(e.target.value)}
-            placeholder="Opponent Deck"
-            className="w-full h-9 px-3 text-sm border border-gray-300 rounded focus:border-custom focus:ring-1 focus:ring-custom"
-          />
-        </div>
+      <Box display="flex" gap={2} marginBottom={2}>
+        <TextField
+          label="Your Deck"
+          variant="outlined"
+          value={yourDeck}
+          onChange={handleInputChange(setYourDeck)}
+          fullWidth
+        />
+        <TextField
+          label="Opponent Deck"
+          variant="outlined"
+          value={opponentDeck}
+          onChange={handleInputChange(setOpponentDeck)}
+          fullWidth
+        />
+      </Box>
 
-        <div className="flex justify-between items-center text-sm">
-          <div className="space-x-3">
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                name="position"
-                value="First"
-                checked={position === "First"}
-                onChange={(e) => setPosition(e.target.value)}
-                className="text-custom focus:ring-custom h-4 w-4"
-              />
-              <span className="ml-2">First</span>
-            </label>
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                name="position"
-                value="Second"
-                checked={position === "Second"}
-                onChange={(e) => setPosition(e.target.value)}
-                className="text-custom focus:ring-custom h-4 w-4"
-              />
-              <span className="ml-2">Second</span>
-            </label>
-          </div>
-          <button
-            type="submit"
-            className="bg-custom text-white px-4 h-8 text-sm rounded hover:bg-custom/90"
-          >
-            <i className="fas fa-plus mr-1"></i> Add
-          </button>
-        </div>
-
-        <div className="flex space-x-4 text-sm">
-          <label className="inline-flex items-center">
-            <input
-              type="radio"
-              name="result"
-              value="Win"
-              checked={result === "Win"}
-              onChange={(e) => setResult(e.target.value)}
-              className="text-custom focus:ring-custom h-4 w-4"
-            />
-            <span className="ml-2">Win</span>
-          </label>
-          <label className="inline-flex items-center">
-            <input
-              type="radio"
-              name="result"
-              value="Lose"
-              checked={result === "Lose"}
-              onChange={(e) => setResult(e.target.value)}
-              className="text-custom focus:ring-custom h-4 w-4"
-            />
-            <span className="ml-2">Lose</span>
-          </label>
-        </div>
-      </form>
-
-      {/* Summary */}
-      <div className="flex justify-between text-sm bg-gray-50 p-3 rounded-lg mb-4">
-        <div>
-          <span className="text-gray-600">Total Games:</span>
-          <span className="font-medium ml-1">{records.length}</span>
-        </div>
-        <div>
-          <span className="text-gray-600">Win Rate:</span>
-          <span className="font-medium ml-1">
-            {records.length > 0
-              ? (
-                  (records.filter((r) => r.result === "Win").length /
-                    records.length) *
-                  100
-                ).toFixed(2) + "%"
-              : "0%"}
-          </span>
-        </div>
-      </div>
-
-      {/* Records Table */}
-      <div className="overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium text-gray-500 border-b-2 border-gray-300">
-                Your Deck
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-gray-500 border-b-2 border-gray-300">
-                Opponent
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-gray-500 border-b-2 border-gray-300">
-                Position
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-gray-500 border-b-2 border-gray-300">
-                Result
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {records.map((record, index) => (
-              <tr key={index}>
-                <td className="px-3 py-2 border-b border-gray-200">{record.yourDeck}</td>
-                <td className="px-3 py-2 border-b border-gray-200">{record.opponentDeck}</td>
-                <td className="px-3 py-2 border-b border-gray-200">{record.position}</td>
-                <td
-                  className={`px-3 py-2 border-b border-gray-200 ${
-                    record.result === "Win"
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {record.result}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-4 text-right">
-        <button
-          onClick={clearRecords}
-          className="text-sm text-gray-600 hover:text-gray-900"
+      <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom={2}>
+        <ToggleButtonGroup
+          value={selectedOption}
+          exclusive
+          onChange={handleToggleChange}
+          aria-label="deck selection"
         >
-          <i className="fas fa-trash-alt mr-1"></i> Clear All
-        </button>
-      </div>
-    </div>
+          <ToggleButton value="first" aria-label="first deck">First</ToggleButton>
+          <ToggleButton value="second" aria-label="second deck">Second</ToggleButton>
+        </ToggleButtonGroup>
+        <Button variant="contained" onClick={handleAddMatch}>+ Add</Button>
+      </Box>
+
+      <Box display="flex" marginBottom={2}>
+        <ToggleButtonGroup
+          value={result}
+          exclusive
+          onChange={(e, newValue) => {
+            if (newValue !== null) {
+              setResult(newValue);
+            }
+          }}
+          aria-label="game result"
+        >
+          <ToggleButton value="win" aria-label="win">Win</ToggleButton>
+          <ToggleButton value="lose" aria-label="lose">Lose</ToggleButton>
+          <ToggleButton value="draw" aria-label="draw">Draw</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
+      <Paper style={{ padding: '16px', backgroundColor: '#f0f0f0' }}>
+        <Box display="flex" justifyContent="space-between">
+          <Typography>Total Games: {totalGames}</Typography>
+          <Typography>Win Rate: {winRate}%</Typography>
+        </Box>
+      </Paper>
+
+      <Paper style={{ marginTop: '16px' }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell className="table-cell">You</TableCell>
+              <TableCell className="table-cell">Opponent</TableCell>
+              <TableCell className="table-cell-small">Position</TableCell>
+              <TableCell className="table-cell-small">Result</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {matches
+              .filter(match => match.yourDeck)
+              .sort((a, b) => a.yourDeck.localeCompare(b.yourDeck))
+              .map((match, index) => (
+                <TableRow key={index}>
+                  <TableCell className="table-cell">{match.yourDeck}</TableCell>
+                  <TableCell className="table-cell">{match.opponentDeck}</TableCell>
+                  <TableCell className="table-cell-small">{match.position}</TableCell>
+                  <TableCell className="table-cell-small">{match.result}</TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Container>
   );
 }
 
