@@ -1,35 +1,65 @@
-.w-\[360px\] {
-  width: 360px;
+/* App.css */
+
+/* 전체 입력 섹션 스타일 */
+.input-section {
+  position: absolute;
+  left: 16px;
+  top: 60px;
+  width: 328px;
+  height: 112px;
+  opacity: 1;
+  background: rgba(0, 0, 0, 0);
+  z-index: 1;
 }
 
-.p-4 {
-  padding: 1rem;
+/* 왼쪽 덱 입력 박스 스타일 */
+.left-deck-input {
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  width: 158px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: 0;
 }
 
-.bg-white {
-  background-color: white;
+/* 오른쪽 덱 입력 박스 스타일 */
+.right-deck-input {
+  position: absolute;
+  left: 170px; /* 왼쪽 박스와의 간격을 고려 */
+  top: 0px;
+  width: 158px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: 1;
 }
 
-.shadow-sm {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+/* Position Selection과 Add Button 스타일 */
+.position-selection {
+  position: absolute;
+  left: 0px;
+  top: 48px;
+  width: 328px;
+  height: 32px;
+  opacity: 1;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0px;
+  background: rgba(0, 0, 0, 0);
 }
 
-.font-sans {
-  font-family: sans-serif;
+/* Result Selection 스타일 */
+.result-selection {
+  position: absolute;
+  left: 0px;
+  top: 92px;
+  width: 328px;
+  height: 20px;
+  opacity: 1;
+  display: flex;
+  flex-direction: row;
+  padding: 0px;
+  background: rgba(0, 0, 0, 0);
 }
-
-.table-cell {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.table-cell-small {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* 추가적인 CSS 클래스들... */
