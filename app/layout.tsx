@@ -2,6 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import type { Viewport } from "next"
+import { ToastContainer } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -30,6 +33,7 @@ export default function RootLayout({
     <html lang="ko">
       <body className={inter.className}>
         <div className="min-h-screen bg-background">{children}</div>
+        <ToastContainer position="top-center" autoClose={2000} hideProgressBar newestOnTop closeOnClick pauseOnHover={false} draggable={false} theme="light" limit={2} />
       </body>
     </html>
   )

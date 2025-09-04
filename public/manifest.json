@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "DualLog",
+  "description": "DualLog - Card Game Tracker (Chrome Extension)",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "DualLog",
+    "default_popup": "index.html"
+  },
+  "icons": {
+    "16": "placeholder-logo.png",
+    "32": "placeholder-logo.png",
+    "48": "placeholder-logo.png",
+    "128": "placeholder-logo.png"
+  },
+  "permissions": [],
+  "host_permissions": [],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "_next/static/*",
+        "placeholder-logo.png",
+        "placeholder-logo.svg",
+        "placeholder-user.jpg",
+        "placeholder.jpg",
+        "placeholder.svg"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+
+

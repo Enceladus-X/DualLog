@@ -361,7 +361,7 @@ export default function MainView({
             className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-bold py-3 shadow-md transition-all text-sm disabled:opacity-50"
           >
             <Download className="h-4 w-4 mr-2" />
-            전적 리포트 생성
+            {t.downloadReport}
           </Button>
         </div>
       </div>

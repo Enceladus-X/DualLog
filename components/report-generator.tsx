@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { X, Download, Copy, Eye, BarChart3 } from "lucide-react"
+import { toast } from "react-toastify"
 
 interface Match {
   yourDeck: string
@@ -55,7 +56,6 @@ export default function ReportGenerator({
   const [activeTab, setActiveTab] = useState("text")
   const [options, setOptions] = useState<ReportOptions>(defaultOptions)
   const [textPreview, setTextPreview] = useState("")
-  const [imagePreview, setImagePreview] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
 
   // 현재 연승 계산 (오늘 기준)
@@ -102,8 +102,7 @@ export default function ReportGenerator({
 
     let report = ""
 
-    // 헤더
-    report += `🎮 ${t.appName} 전적 리포트\n`
+    // 헤더 (앱명 문구 제거, 날짜만)
     report += `📅 ${today}\n`
     report += `${"=".repeat(30)}\n\n`
 
@@ -113,7 +112,34 @@ export default function ReportGenerator({
       report += `• 총 게임: ${allTimeStats.totalGames}게임\n`
       report += `• 승리: ${allTimeStats.wins}게임 | 패배: ${allTimeStats.losses}게임\n`
       report += `• 승률: ${allTimeStats.winRate}%\n`
-      report += `• 최고 연승: ${allTimeStats.maxStreak}연승 🔥\n\n`
+      // 최고 연승 제거
+      // 추가: 최다 플레이 덱, 최고 승률 덱
+      const mostPlayed = (() => {
+        const count = new Map<string, number>()
+        allMatches.forEach((m) => count.set(m.yourDeck, (count.get(m.yourDeck) || 0) + 1))
+        const arr = Array.from(count.entries()).sort((a, b) => b[1] - a[1])
+        return arr.length ? { deck: arr[0][0], count: arr[0][1] } : null
+      })()
+      const bestDeck = (() => {
+        const map = new Map<string, { w: number; l: number }>()
+        allMatches.forEach((m) => {
+          const s = map.get(m.yourDeck) || { w: 0, l: 0 }
+          m.result === "win" ? (s.w += 1) : (s.l += 1)
+          map.set(m.yourDeck, s)
+        })
+        const arr = Array.from(map.entries())
+          .map(([deck, s]) => ({ deck, total: s.w + s.l, winRate: s.w + s.l > 0 ? (s.w / (s.w + s.l)) * 100 : 0 }))
+          .filter((d) => d.total >= 3)
+          .sort((a, b) => b.winRate - a.winRate)
+        return arr[0] || null
+      })()
+      if (mostPlayed) {
+        report += `• 최다 플레이 덱: ${mostPlayed.deck} (${mostPlayed.count}게임)\n`
+      }
+      if (bestDeck) {
+        report += `• 최고 승률 덱: ${bestDeck.deck} (${bestDeck.winRate.toFixed(1)}%)\n`
+      }
+      report += `\n`
     }
 
     // 오늘의 전적
@@ -134,7 +160,7 @@ export default function ReportGenerator({
         const opponentDeck = options.hideOpponentNames ? "상대" : match.opponentDeck
         const position = match.position === "first" ? "선공🚀" : "후공🛡️"
         const result = match.result === "win" ? "승리" : "패배"
-        const resultEmoji = match.result === "win" ? "🟢" : "🔴"
+        const resultEmoji = match.result === "win" ? "✅" : "❌"
         const streakText = match.winStreak > 1 ? ` (${match.winStreak}연승!)` : ""
 
         report += `${i + 1}. ${yourDeck} vs ${opponentDeck} (${position}) → ${result}${resultEmoji}${streakText}\n`
@@ -150,293 +176,18 @@ export default function ReportGenerator({
     return report
   }
 
-  // 도넛 차트 그리기 함수
-  const drawDonutChart = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    radius: number,
-    wins: number,
-    total: number,
-    theme: any,
-  ) => {
-    if (total === 0) return
-
-    const winRate = wins / total
-    const lossRate = 1 - winRate
-
-    // 배경 원
-    ctx.beginPath()
-    ctx.arc(x, y, radius, 0, 2 * Math.PI)
-    ctx.fillStyle = theme.bg
-    ctx.fill()
-    ctx.strokeStyle = theme.border
-    ctx.lineWidth = 1
-    ctx.stroke()
-
-    // 패배 부분 (전체)
-    ctx.beginPath()
-    ctx.arc(x, y, radius - 3, 0, 2 * Math.PI)
-    ctx.fillStyle = theme.danger + "30"
-    ctx.fill()
-
-    // 승리 부분 (호)
-    if (winRate > 0) {
-      ctx.beginPath()
-      ctx.arc(x, y, radius - 3, -Math.PI / 2, -Math.PI / 2 + winRate * 2 * Math.PI)
-      ctx.strokeStyle = theme.success
-      ctx.lineWidth = radius / 4
-      ctx.stroke()
-    }
-
-    // 중앙 텍스트
-    ctx.fillStyle = theme.text
-    ctx.font = "bold 11px Arial, sans-serif"
-    ctx.textAlign = "center"
-    ctx.fillText(`${(winRate * 100).toFixed(0)}%`, x, y - 2)
-
-    ctx.font = "8px Arial, sans-serif"
-    ctx.fillStyle = theme.textLight
-    ctx.fillText(`${wins}승 ${total - wins}패`, x, y + 8)
-  }
-
-  // 타이트한 이미지 리포트 생성
-  const generateImageReport = async (): Promise<string> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement("canvas")
-      const ctx = canvas.getContext("2d")!
-
-      // 더 작고 타이트한 크기
-      canvas.width = 400
-      canvas.height = 280
-
-      // 미니멀 테마 색상
-      const theme = {
-        bg: "#f8fafc",
-        cardBg: "#ffffff",
-        primary: "#3b82f6",
-        success: "#10b981",
-        danger: "#ef4444",
-        text: "#1e293b",
-        textLight: "#64748b",
-        border: "#e2e8f0",
-      }
-
-      // 배경
-      ctx.fillStyle = theme.bg
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-      let yPos = 8
-
-      // 헤더 (더 작게)
-      ctx.fillStyle = theme.cardBg
-      ctx.fillRect(8, yPos, canvas.width - 16, 32)
-      ctx.strokeStyle = theme.border
-      ctx.lineWidth = 1
-      ctx.strokeRect(8, yPos, canvas.width - 16, 32)
-
-      ctx.fillStyle = theme.text
-      ctx.font = "bold 14px Arial, sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText("🎮 전적 리포트", canvas.width / 2, yPos + 15)
-
-      ctx.font = "9px Arial, sans-serif"
-      ctx.fillStyle = theme.textLight
-      const today = new Date().toLocaleDateString("ko-KR")
-      ctx.fillText(today, canvas.width / 2, yPos + 27)
-
-      yPos += 40
-
-      const allTimeStats = getAllTimeStats()
-
-      // 전체 통계 (상단, 더 작게)
-      if (options.showAllTimeStats && allTimeStats) {
-        ctx.fillStyle = theme.cardBg
-        ctx.fillRect(8, yPos, canvas.width - 16, 50)
-        ctx.strokeStyle = theme.border
-        ctx.strokeRect(8, yPos, canvas.width - 16, 50)
-
-        ctx.fillStyle = theme.text
-        ctx.font = "bold 10px Arial, sans-serif"
-        ctx.textAlign = "left"
-        ctx.fillText("📊 전체 통계", 15, yPos + 12)
-
-        // 도넛 차트 (더 작게)
-        drawDonutChart(ctx, 50, yPos + 30, 15, allTimeStats.wins, allTimeStats.totalGames, theme)
-
-        // 통계 텍스트 (더 압축)
-        ctx.textAlign = "left"
-        ctx.font = "9px Arial, sans-serif"
-        ctx.fillStyle = theme.text
-
-        const statsX = 80
-        ctx.fillText(`총 ${allTimeStats.totalGames}게임`, statsX, yPos + 20)
-        ctx.fillText(`승률 ${allTimeStats.winRate}%`, statsX, yPos + 32)
-        ctx.fillText(`최고 ${allTimeStats.maxStreak}연승 🔥`, statsX, yPos + 44)
-
-        yPos += 58
-      }
-
-      // 메인 콘텐츠 영역 (가로 분할, 더 타이트)
-      const contentHeight = canvas.height - yPos - 15
-      const leftWidth = (canvas.width - 24) / 2
-      const rightWidth = leftWidth
-
-      // 왼쪽: 오늘의 전적
-      ctx.fillStyle = theme.cardBg
-      ctx.fillRect(8, yPos, leftWidth, contentHeight)
-      ctx.strokeStyle = theme.border
-      ctx.strokeRect(8, yPos, leftWidth, contentHeight)
-
-      ctx.fillStyle = theme.text
-      ctx.font = "bold 10px Arial, sans-serif"
-      ctx.textAlign = "left"
-      ctx.fillText("🎯 오늘의 전적", 15, yPos + 12)
-
-      if (todayMatches.length > 0) {
-        const wins = todayMatches.filter((m) => m.result === "win").length
-        const winRate = (wins / todayMatches.length) * 100
-        const currentStreak = getCurrentStreak()
-
-        // 승률 원형 (더 작게)
-        const circleX = 8 + leftWidth / 2
-        const circleY = yPos + 45
-        const radius = 18
-
-        ctx.beginPath()
-        ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI)
-        ctx.fillStyle = theme.bg
-        ctx.fill()
-        ctx.strokeStyle = theme.border
-        ctx.lineWidth = 1
-        ctx.stroke()
-
-        if (todayMatches.length > 0) {
-          const angle = (winRate / 100) * 2 * Math.PI
-          ctx.beginPath()
-          ctx.arc(circleX, circleY, radius, -Math.PI / 2, -Math.PI / 2 + angle)
-          ctx.strokeStyle = winRate >= 50 ? theme.success : theme.danger
-          ctx.lineWidth = 2
-          ctx.stroke()
-        }
-
-        ctx.fillStyle = theme.text
-        ctx.font = "bold 11px Arial, sans-serif"
-        ctx.textAlign = "center"
-        ctx.fillText(`${winRate.toFixed(0)}%`, circleX, circleY - 2)
-
-        ctx.font = "8px Arial, sans-serif"
-        ctx.fillStyle = theme.textLight
-        ctx.fillText(`${wins}승 ${todayMatches.length - wins}패`, circleX, circleY + 8)
-
-        // 게임 수와 현재 연승 (더 압축)
-        ctx.font = "9px Arial, sans-serif"
-        ctx.fillStyle = theme.text
-        ctx.fillText(`총 ${todayMatches.length}게임`, circleX, circleY + 25)
-
-        if (currentStreak > 0) {
-          ctx.fillStyle = theme.success
-          ctx.fillText(`현재 ${currentStreak}연승!`, circleX, circleY + 37)
-        }
-      } else {
-        ctx.fillStyle = theme.textLight
-        ctx.font = "10px Arial, sans-serif"
-        ctx.textAlign = "center"
-        ctx.fillText("아직 기록된", 8 + leftWidth / 2, yPos + 40)
-        ctx.fillText("게임이 없습니다", 8 + leftWidth / 2, yPos + 55)
-      }
-
-      // 오른쪽: 게임 기록
-      const rightX = 16 + leftWidth
-      ctx.fillStyle = theme.cardBg
-      ctx.fillRect(rightX, yPos, rightWidth, contentHeight)
-      ctx.strokeStyle = theme.border
-      ctx.strokeRect(rightX, yPos, rightWidth, contentHeight)
-
-      ctx.fillStyle = theme.text
-      ctx.font = "bold 10px Arial, sans-serif"
-      ctx.textAlign = "left"
-      ctx.fillText("🏆 게임 기록", rightX + 8, yPos + 12)
-
-      if (todayMatches.length > 0) {
-        let gameY = yPos + 22
-        const maxGames = Math.min(todayMatches.length, 15)
-        const gameHeight = 12
-
-        todayMatches.slice(-maxGames).forEach((match, i) => {
-          const yourDeck = options.hideDeckNames ? options.deckAlias : match.yourDeck
-          const opponentDeck = options.hideOpponentNames ? "상대" : match.opponentDeck
-
-          // 게임 배경 (더 얇게)
-          const bgColor = match.result === "win" ? theme.success + "15" : theme.danger + "15"
-          ctx.fillStyle = bgColor
-          ctx.fillRect(rightX + 3, gameY, rightWidth - 6, gameHeight)
-
-          // 결과와 선후공 아이콘
-          const resultIcon = match.result === "win" ? "🟢" : "🔴"
-          const positionIcon = match.position === "first" ? "🚀" : "🛡️"
-
-          ctx.fillStyle = theme.text
-          ctx.font = "8px Arial, sans-serif"
-          ctx.textAlign = "left"
-
-          // 게임 정보 (더 압축)
-          const gameText = `${resultIcon}${positionIcon} ${yourDeck} vs ${opponentDeck}`
-          ctx.fillText(gameText, rightX + 5, gameY + 8)
-
-          // 연승 표시
-          if (match.winStreak > 1) {
-            ctx.fillStyle = theme.success
-            ctx.font = "bold 7px Arial, sans-serif"
-            ctx.textAlign = "right"
-            ctx.fillText(`${match.winStreak}연승`, rightX + rightWidth - 5, gameY + 8)
-          }
-
-          gameY += gameHeight + 1
-        })
-
-        if (todayMatches.length > maxGames) {
-          ctx.fillStyle = theme.textLight
-          ctx.font = "8px Arial, sans-serif"
-          ctx.textAlign = "center"
-          ctx.fillText(`... 외 ${todayMatches.length - maxGames}게임 더`, rightX + rightWidth / 2, gameY + 8)
-        }
-      } else {
-        ctx.fillStyle = theme.textLight
-        ctx.font = "9px Arial, sans-serif"
-        ctx.textAlign = "center"
-        ctx.fillText("게임을 시작해보세요!", rightX + rightWidth / 2, yPos + 40)
-      }
-
-      // 워터마크 (더 작게)
-      ctx.fillStyle = theme.textLight
-      ctx.font = "7px Arial, sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText(`Generated by ${t.appName}`, canvas.width / 2, canvas.height - 5)
-
-      resolve(canvas.toDataURL("image/png"))
-    })
-  }
+  // 이미지 리포트 기능 제거
 
   // 옵션 변경시 미리보기 업데이트
   useEffect(() => {
     if (!isOpen) return
-
-    if (activeTab === "text") {
       setTextPreview(generateTextReport())
-    } else {
-      setIsGenerating(true)
-      generateImageReport().then((dataUrl) => {
-        setImagePreview(dataUrl)
-        setIsGenerating(false)
-      })
-    }
   }, [options, activeTab, isOpen, todayMatches, allMatches])
 
   const handleCopyText = async () => {
     try {
       await navigator.clipboard.writeText(textPreview)
-      // 팝업 제거 - 조용히 복사만
+      toast.success("복사 완료 — 텍스트 리포트가 클립보드에 복사되었습니다.")
     } catch (error) {
       console.error("텍스트 복사 실패:", error)
     }
@@ -452,35 +203,21 @@ export default function ReportGenerator({
     URL.revokeObjectURL(url)
   }
 
-  const handleCopyImage = async () => {
-    try {
-      const response = await fetch(imagePreview)
-      const blob = await response.blob()
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-      // 팝업 제거 - 조용히 복사만
-    } catch (error) {
-      console.error("이미지 복사 실패:", error)
-    }
-  }
+  // 이미지 복사 제거
 
-  const handleDownloadImage = () => {
-    const link = document.createElement("a")
-    link.download = `Omegagu_Report_${new Date().toISOString().split("T")[0]}.png`
-    link.href = imagePreview
-    link.click()
-  }
+  // 이미지 다운로드 제거
 
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div
-        className={`w-full max-w-5xl h-[90vh] rounded-lg shadow-xl ${settings.theme === "dark" ? "bg-gray-900" : "bg-white"}`}
+        className={`w-full max-w-3xl h-[70vh] rounded-lg shadow-xl ${settings.theme === "dark" ? "bg-gray-900" : "bg-white"}`}
       >
         <div className="flex h-full">
           {/* 옵션 패널 */}
           <div
-            className={`w-64 border-r overflow-y-auto ${settings.theme === "dark" ? "border-gray-700 bg-gray-800" : "border-gray-200"}`}
+            className={`w-60 border-r overflow-y-auto ${settings.theme === "dark" ? "border-gray-700 bg-gray-800" : "border-gray-200"}`}
           >
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
@@ -492,10 +229,9 @@ export default function ReportGenerator({
                 </Button>
               </div>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-                <TabsList className="grid w-full grid-cols-2">
+              <Tabs value={"text"} className="mb-4">
+                <TabsList className="grid w-full grid-cols-1">
                   <TabsTrigger value="text">텍스트</TabsTrigger>
-                  <TabsTrigger value="image">이미지</TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -572,16 +308,7 @@ export default function ReportGenerator({
                 </Card>
               </div>
 
-              {activeTab === "image" && (
-                <div className={`mt-4 p-3 rounded-lg ${settings.theme === "dark" ? "bg-gray-700" : "bg-gray-50"}`}>
-                  <p className={`text-xs ${settings.theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                    💡 이미지는 타이트한 가로 분할 구조로 최적화되어 있습니다.
-                  </p>
-                  <p className={`text-xs mt-1 ${settings.theme === "dark" ? "text-gray-400" : "text-gray-600"}`}>
-                    🚀 선공 | 🛡️ 후공
-                  </p>
-                </div>
-              )}
+              {/* 이미지 안내 제거 */}
             </div>
           </div>
 
@@ -593,15 +320,11 @@ export default function ReportGenerator({
                   미리보기
                 </h3>
                 <div className="flex gap-2">
-                  <Button onClick={activeTab === "text" ? handleCopyText : handleCopyImage} size="sm">
+                  <Button onClick={handleCopyText} size="sm">
                     <Copy className="h-4 w-4 mr-1" />
                     복사
                   </Button>
-                  <Button
-                    onClick={activeTab === "text" ? handleDownloadText : handleDownloadImage}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={handleDownloadText} variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-1" />
                     다운로드
                   </Button>
@@ -610,9 +333,8 @@ export default function ReportGenerator({
             </div>
 
             <div className="flex-1 p-4 overflow-auto">
-              {activeTab === "text" ? (
                 <div
-                  className={`w-full h-full p-4 rounded border font-mono text-sm whitespace-pre-wrap ${
+                className={`w-full h-full p-3 rounded border font-mono text-sm whitespace-pre-wrap ${
                     settings.theme === "dark"
                       ? "bg-gray-800 border-gray-600 text-gray-100"
                       : "bg-gray-50 border-gray-200"
@@ -620,22 +342,6 @@ export default function ReportGenerator({
                 >
                   {textPreview}
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  {isGenerating ? (
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                      <p className={settings.theme === "dark" ? "text-gray-400" : "text-gray-600"}>이미지 생성 중...</p>
-                    </div>
-                  ) : imagePreview ? (
-                    <img
-                      src={imagePreview || "/placeholder.svg"}
-                      alt="Report Preview"
-                      className="max-w-full max-h-full object-contain rounded shadow-lg"
-                    />
-                  ) : null}
-                </div>
-              )}
             </div>
           </div>
         </div>

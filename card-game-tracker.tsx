@@ -10,6 +10,7 @@ import MainView from "./components/main-view"
 import { loadCSVData, exportToCSV, importFromCSV, addMatchToData, removeMatchFromData } from "./utils/csv-utils"
 import { getBestDeck, calculateWinStreak } from "./utils/stats-utils"
 import ReportGenerator from "./components/report-generator"
+import { toast } from "react-toastify"
 
 interface Match {
   yourDeck: string
@@ -52,17 +53,29 @@ interface DeckStats {
 interface AppSettings {
   language: "ko" | "en"
   theme: "light" | "dark"
+  compactMode: boolean
+  showWinStreak: boolean
   autoSaveGames: number
   streakNotification: boolean
   winRateGoal: number
+  communityUrl?: string
+  communityDefaultTitle?: string
+  communityDefaultCategory?: string
+  developerMode?: boolean
 }
 
 const defaultSettings: AppSettings = {
   language: "ko",
   theme: "light",
+  compactMode: false,
+  showWinStreak: false,
   autoSaveGames: 0,
   streakNotification: false,
   winRateGoal: 0,
+  communityUrl: "https://gall.dcinside.com/mgallery/board/write/?id=tcggame",
+  communityDefaultTitle: "ㅇㅁㄱㄱ",
+  communityDefaultCategory: "매칭",
+  developerMode: false,
 }
 
 // 완전한 언어 텍스트 객체 - 모든 텍스트 포함
@@ -83,7 +96,7 @@ const texts = {
     lose: "패배",
     add: "추가",
     noGames: "오늘의 전적이 없습니다",
-    communityShare: "커뮤니티 공유",
+    communityShare: "오메가구!!",
     sendToStats: "통계로 보내기",
 
     // 테이블 헤더
@@ -126,18 +139,27 @@ const texts = {
     maxWinStreak: "최다 연승",
     current: "현재",
     bestWinRateDeck: "최고 승률 덱",
-    downloadReport: "오늘 전적 리포트 다운로드",
+    downloadReport: "오늘의 전적 리포트 확인하기",
+    quarterAnalysis: "분기별 플레이 분석",
+    q1: "1분기",
+    q2: "2분기",
+    q3: "3분기",
+    q4: "4분기",
 
     // 추가 번역
     statsAnalysis: "통계 분석",
     csvExport: "CSV 내보내기",
     csvImport: "CSV 불러오기",
     mostPlayedDeck: "최다 플레이",
+    sortCriteria: "정렬 기준",
+    sortByWinRate: "승률순",
+    sortByDeckName: "덱 이름 순",
     firstPosition: "선공 (FIRST)",
     secondPosition: "후공 (SECOND)",
     positionAnalysis: "선후공 분석",
     deckWinRate: "덱별 승률",
     timeAnalysis: "시간대별 분석",
+    timePlayed: "시간대별 플레이 수",
     morning: "오전 (6-12시)",
     afternoon: "오후 (12-18시)",
     evening: "저녁 (18-24시)",
@@ -250,18 +272,27 @@ const texts = {
     maxWinStreak: "Max Win Streak",
     current: "Current",
     bestWinRateDeck: "Best Win Rate Deck",
-    downloadReport: "Download Today's Report",
+    downloadReport: "View Today's Report",
+    quarterAnalysis: "Quarterly Play Analysis",
+    q1: "Q1",
+    q2: "Q2",
+    q3: "Q3",
+    q4: "Q4",
 
     // 추가 번역
     statsAnalysis: "Statistics Analysis",
     csvExport: "CSV Export",
     csvImport: "CSV Import",
     mostPlayedDeck: "Most Played",
+    sortCriteria: "Sort by",
+    sortByWinRate: "Win Rate",
+    sortByDeckName: "Deck Name",
     firstPosition: "First Position",
     secondPosition: "Second Position",
     positionAnalysis: "Position Analysis",
     deckWinRate: "Deck Win Rates",
     timeAnalysis: "Time Analysis",
+    timePlayed: "Plays by Time of Day",
     morning: "Morning (6-12)",
     afternoon: "Afternoon (12-18)",
     evening: "Evening (18-24)",
@@ -355,6 +386,18 @@ export default function DualLogApp() {
       const storedTodayMatches = localStorage.getItem(`today_matches_${today}`)
       if (storedTodayMatches) {
         setTodayMatches(JSON.parse(storedTodayMatches))
+      } else {
+        const now = new Date()
+        const baseTime = (offset: number) => new Date(now.getTime() - offset * 60 * 60 * 1000).toISOString()
+        const sample: Match[] = [
+          { yourDeck: "Omega A", opponentDeck: "Beta X", position: "first", result: "win", timestamp: baseTime(1), winStreak: 1 },
+          { yourDeck: "Omega A", opponentDeck: "Gamma Y", position: "second", result: "lose", timestamp: baseTime(2), winStreak: 0 },
+          { yourDeck: "Delta B", opponentDeck: "Beta X", position: "first", result: "win", timestamp: baseTime(3), winStreak: 1 },
+          { yourDeck: "Delta B", opponentDeck: "Gamma Y", position: "second", result: "win", timestamp: baseTime(4), winStreak: 2 },
+          { yourDeck: "Zeta C", opponentDeck: "Alpha Z", position: "first", result: "lose", timestamp: baseTime(5), winStreak: 0 },
+        ]
+        setTodayMatches(sample)
+        localStorage.setItem(`today_matches_${today}`, JSON.stringify(sample))
       }
 
       const storedAllTimeStats = localStorage.getItem("all_time_stats")
@@ -401,9 +444,11 @@ export default function DualLogApp() {
     initializeData()
   }, [today])
 
-  const saveSettings = (newSettings: AppSettings) => {
-    setAppSettings(newSettings)
-    localStorage.setItem("omegagu_settings", JSON.stringify(newSettings))
+  const saveSettings = (newSettings: any) => {
+    const merged = { ...appSettings, ...newSettings }
+    setAppSettings(merged)
+    localStorage.setItem("omegagu_settings", JSON.stringify(merged))
+    toast.success("저장 완료")
   }
 
   const handleAddMatch = () => {
@@ -437,7 +482,7 @@ export default function DualLogApp() {
     }
 
     if (appSettings.streakNotification && currentWinStreak >= 5 && result === "win") {
-      alert(`🔥 ${currentWinStreak}${t.streakAchieved}`)
+      toast.info(`🔥 ${currentWinStreak}${t.streakAchieved}`)
     }
 
     setYourDeck("")
@@ -448,7 +493,7 @@ export default function DualLogApp() {
 
   const handleFinishDay = () => {
     if (todayMatches.length === 0) {
-      alert(t.noGamesRecorded)
+      toast.warn(t.noGamesRecorded)
       return
     }
 
@@ -473,32 +518,75 @@ export default function DualLogApp() {
     localStorage.setItem("all_time_stats", JSON.stringify(updatedAllTimeStats))
 
     if (appSettings.streakNotification && winRate >= appSettings.winRateGoal) {
-      alert(`🎯 ${t.goalAchieved} ${appSettings.winRateGoal}% ${t.achieved} (${winRate.toFixed(1)}%)`)
+      toast.success(`🎯 ${t.goalAchieved} ${appSettings.winRateGoal}% ${t.achieved} (${winRate.toFixed(1)}%)`)
     }
 
     setTodayMatches([])
     localStorage.removeItem(`today_matches_${today}`)
 
-    alert(`${t.todayStatsStored}\n${t.totalGames} ${totalGames}${t.games}, ${t.winRate} ${winRate.toFixed(1)}%`)
+    toast.success("통계로 전송 완료")
   }
 
-  const handleWriteCommunityPost = () => {
-    alert(t.communityFeature)
+  const handleWriteCommunityPost = async () => {
+    // 간단 텍스트 리포트 생성 (오늘 기준)
+    const wins = todayMatches.filter((m) => m.result === "win").length
+    const losses = todayMatches.filter((m) => m.result === "lose").length
+    const winRate = todayMatches.length > 0 ? ((wins / todayMatches.length) * 100).toFixed(1) : "0.0"
+    const todayStr = new Date().toISOString().split("T")[0]
+
+    const lines: string[] = []
+    lines.push(`🎮 ${t.appName} 전적 리포트`)
+    lines.push(`📅 ${todayStr}`)
+    lines.push("".padEnd(30, "="))
+    lines.push("")
+    lines.push(`🎯 오늘의 전적`)
+    lines.push(`• 총 게임: ${todayMatches.length}게임`)
+    lines.push(`• 승리: ${wins}게임 | 패배: ${losses}게임`)
+    lines.push(`• 승률: ${winRate}%`)
+    lines.push("")
+    if (todayMatches.length > 0) {
+      lines.push("🏆 게임 기록")
+      todayMatches.forEach((match, i) => {
+        const position = match.position === "first" ? t.firstShort : t.secondShort
+        const result = match.result === "win" ? t.wins : t.losses
+        lines.push(`${i + 1}. ${match.yourDeck} vs ${match.opponentDeck} (${position}) → ${result}`)
+      })
+      lines.push("")
+    }
+    lines.push("".padEnd(30, "="))
+    lines.push(`Generated by ${t.appName}`)
+
+    const text = lines.join("\n")
+
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch (error) {
+      console.error("클립보드 복사 실패:", error)
+    }
+
+    if (appSettings.communityUrl && appSettings.communityUrl.trim()) {
+      window.open(appSettings.communityUrl, "_blank")
+      // 간단 안내
+      setTimeout(() => {
+        toast.info(`복사 완료 — 말머리: ${appSettings.communityDefaultCategory || "매칭"}, 제목: ${appSettings.communityDefaultTitle || "ㅇㅁㄱㄱ"}. 본문은 클립보드에 복사되었습니다.`)
+      }, 300)
+    } else {
+      toast.info("복사 완료 — 리포트 텍스트를 클립보드에 복사했습니다. 설정에서 커뮤니티 글쓰기 URL을 등록하면 글쓰기 페이지를 자동으로 열어드릴게요.")
+    }
   }
 
   const handleDeleteMatch = (indexToDelete: number) => {
-    if (confirm(t.deleteConfirm)) {
-      const matchToDelete = todayMatches[indexToDelete]
+    // confirm 제거: 즉시 삭제하고 토스트로 알림
+    const matchToDelete = todayMatches[indexToDelete]
 
-      // 오늘 매치에서 삭제
-      const updatedTodayMatches = todayMatches.filter((_, index) => index !== indexToDelete)
-      setTodayMatches(updatedTodayMatches)
-      localStorage.setItem(`today_matches_${today}`, JSON.stringify(updatedTodayMatches))
+    const updatedTodayMatches = todayMatches.filter((_, index) => index !== indexToDelete)
+    setTodayMatches(updatedTodayMatches)
+    localStorage.setItem(`today_matches_${today}`, JSON.stringify(updatedTodayMatches))
 
-      // 전체 매치 데이터에서 삭제
-      const updatedAllMatches = removeMatchFromData(matchToDelete, allMatches)
-      setAllMatches(updatedAllMatches)
-    }
+    const updatedAllMatches = removeMatchFromData(matchToDelete, allMatches)
+    setAllMatches(updatedAllMatches)
+
+    toast.success(`삭제됨 — ${matchToDelete.yourDeck} vs ${matchToDelete.opponentDeck}`)
   }
 
   const handleExportCSV = () => {
@@ -515,24 +603,23 @@ export default function DualLogApp() {
       (newMatches, updatedMatches) => {
         setAllMatches(updatedMatches)
         localStorage.setItem("all_matches", JSON.stringify(updatedMatches))
-        alert(`${newMatches.length}${t.newMatchesAdded}`)
+        toast.success(`${newMatches.length}${t.newMatchesAdded}`)
       },
       (error) => {
-        alert(error)
+        toast.error(String(error))
       },
     )
   }
 
   const clearAllData = () => {
-    if (confirm(t.clearAllConfirm)) {
-      localStorage.removeItem("all_time_stats")
-      localStorage.removeItem("all_matches")
-      localStorage.removeItem(`today_matches_${today}`)
-      setAllTimeStats([])
-      setAllMatches([])
-      setTodayMatches([])
-      alert(t.allDataCleared)
-    }
+    // confirm 제거: 즉시 삭제하고 토스트로 알림
+    localStorage.removeItem("all_time_stats")
+    localStorage.removeItem("all_matches")
+    localStorage.removeItem(`today_matches_${today}`)
+    setAllTimeStats([])
+    setAllMatches([])
+    setTodayMatches([])
+    toast.success(t.allDataCleared)
   }
 
   const handleGenerateReport = () => {
