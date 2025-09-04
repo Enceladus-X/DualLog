@@ -18,7 +18,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "_next/static/*",
+        "next/static/*",
         "next/*",
         "test_cardgame_500cases_utf8sig.csv",
         "placeholder-logo.png",

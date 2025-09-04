@@ -7,7 +7,7 @@
         "build": "next build && next export",
         "start": "serve out -l 3000",
         "lint": "next lint",
-        "build:ext": "set EXT_BUILD=1&& set NEXT_PUBLIC_IS_EXTENSION=1&& npx rimraf dist-ext && next build && next export -o dist-ext && copy public\\manifest.json dist-ext\\manifest.json"
+        "build:ext": "set EXT_BUILD=1&& set NEXT_PUBLIC_IS_EXTENSION=1&& npx rimraf dist-ext && npx rimraf out && next build && xcopy out dist-ext /e /i /y && copy public\\manifest.json dist-ext\\manifest.json && node scripts/prepare-extension.mjs"
     },
     "dependencies": {
         "@radix-ui/react-label": "^2.1.7",
